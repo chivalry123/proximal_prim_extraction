@@ -1,6 +1,7 @@
 
 from __future__ import print_function, division
 
+import errno
 import os
 import re
 import sys
@@ -150,12 +151,12 @@ def convert_out_of_cell_index_to_incell_index(out_of_cell_index,periodicity):
 
 class spin_configuration_class(object):
     ## x,y,z,p all starts from 0
-    def __init__(self, configuration,periodicity):
+    def __init__(self, configuration,periodicity,species_prim):
         self.element_count=None
         self.inverse_configuration={}
         self.configuration=configuration
         self.periodicity=tuple(map(lambda x : int(round(x)) ,periodicity))
-        self.subcell_number=self.calculate_subscell_number()
+        self.subcell_number=self.calculate_subscell_number(species_prim)
         self.concentration=self.calculate_concentration()
 
     def expand_configuration(self):
@@ -169,14 +170,15 @@ class spin_configuration_class(object):
             self.configuration[index]=self.configuration[reduced_index]
             return self.configuration[index]
 
-    def calculate_subscell_number(self):
-        subcell_number=0
-        for i in range(1000):
-            if (0,0,0,i) in self.configuration:
-                subcell_number+=1
-            else:
-                break
-        return subcell_number
+    def calculate_subscell_number(self,species_prim):
+        return len(species_prim)
+        # subcell_number=0
+        # for i in range(1000):
+        #     if (0,0,0,i) in self.configuration:
+        #         subcell_number+=1
+        #     else:
+        #         break
+        # return subcell_number
 
     def calculate_concentration(self):
         concentration_dict={}
@@ -224,7 +226,10 @@ def calculate_error_rate_for_this_periodicity_vector(periodicity_vector_now,spin
     total_count=0
     error_count=0
 
+    # print ("a0,a2,a5,spin_configuration_poscar_class.subcell_number")
+    # print (a0,a2,a5,spin_configuration_poscar_class.subcell_number)
     for i in range(a0):
+        # print ("calculating error for i = ",i)
         for j in range(a2):
             for k in range(a5):
                 for p in range(spin_configuration_poscar_class.subcell_number):
@@ -296,7 +301,7 @@ def obtain_common_periodicity(target_periodicity,based_periodicity):
     return common_periodicity
 
 
-def construct_configuration_based_on_target_periodicty(target_periodicity,based_configuration_class):
+def construct_configuration_based_on_target_periodicty(target_periodicity,based_configuration_class,species_prim):
     based_periodicity=based_configuration_class.periodicity
     assert abs(based_periodicity[1])+abs(based_periodicity[3])+abs(based_periodicity[4])==0
     common_periodicity=obtain_common_periodicity(target_periodicity,based_periodicity)
@@ -360,7 +365,7 @@ def construct_configuration_based_on_target_periodicty(target_periodicity,based_
                     # print(possible_species_debug)
 
 
-    constructed_spin_configuration_class=spin_configuration_class(constructed_spin_configuration,target_periodicity)
+    constructed_spin_configuration_class=spin_configuration_class(constructed_spin_configuration,target_periodicity,species_prim)
     return  constructed_spin_configuration_class
 
     ## need to do some mathemtical checking, done
@@ -368,7 +373,7 @@ def construct_configuration_based_on_target_periodicty(target_periodicity,based_
 
 
 
-def construct_configuration_based_on_target_periodicty_batch(target_periodicity,based_configuration_class,trialsize=100):
+def construct_configuration_based_on_target_periodicty_batch(target_periodicity,based_configuration_class,species_prim,trialsize=100):
     based_periodicity=based_configuration_class.periodicity
     assert abs(based_periodicity[1])+abs(based_periodicity[3])+abs(based_periodicity[4])==0
     common_periodicity=obtain_common_periodicity(target_periodicity,based_periodicity)
@@ -462,7 +467,7 @@ def construct_configuration_based_on_target_periodicty_batch(target_periodicity,
                     # print(possible_species_debug)
 
     for i in range(trialsize):
-        constructed_spin_configuration_class_batch.append(spin_configuration_class(constructed_spin_configuration_batch[i],target_periodicity))
+        constructed_spin_configuration_class_batch.append(spin_configuration_class(constructed_spin_configuration_batch[i],target_periodicity,species_prim))
     return  constructed_spin_configuration_class_batch
 
     ## need to do some mathemtical checking, done
@@ -531,6 +536,14 @@ def print_to_poscar(spin_configuration_class,avec_prim,coords_prim,species_prim,
             file_content+="{:.8f}{:17.8f}{:17.8f}   ".format(x_transformed,y_transformed,z_transformed)+keys+"\n"
 
     # print(file_content)
+
+
+    if not os.path.exists(os.path.dirname(destination)):
+        try:
+            os.makedirs(os.path.dirname(destination))
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
 
 
 
@@ -786,7 +799,7 @@ if (__name__ == "__main__"):
         # print("freactional_coords_according_to_PRIM")
         # print(freactional_coords_according_to_PRIM)
 
-        supercell_index=np.floor( freactional_coords_according_to_PRIM+1e-4)
+        supercell_index=np.floor( freactional_coords_according_to_PRIM+1e-2)
         # print("supercell_index")
         # print(supercell_index)
 
@@ -799,10 +812,11 @@ if (__name__ == "__main__"):
         # print(residual_position)
 
         sum_error=np.sum(residual_position,1)
-
+        # print ("sum_error")
+        # print (sum_error)
 
         subcell_index=np.argmin(sum_error)
-        assert np.amin(sum_error)<1e-4
+        assert np.amin(sum_error)<1e-2
 
         total_index=np.hstack((supercell_index,subcell_index))
         total_index=tuple(total_index)
@@ -825,7 +839,7 @@ if (__name__ == "__main__"):
     print(a0,a2,a5)
 
 
-    spin_configuration_poscar_class=spin_configuration_class(configurations_poscar,periodicity_poscar)
+    spin_configuration_poscar_class=spin_configuration_class(configurations_poscar,periodicity_poscar,species_prim)
 
 
     periodicity_vector_list=[]
@@ -845,8 +859,16 @@ if (__name__ == "__main__"):
     # print(periodicity_list)
 
     error_rate_list=[]
+
     for i in range(len(periodicity_vector_list)):
+        if i%100 == 0:
+            print ("calculated ",i," periodicity error vector")
+            # if i == 1000:
+            #     break
         periodicity_vector_now=periodicity_vector_list[i]
+        # print ("periodicity_vector_now",periodicity_vector_now)
+        # print ("spin_configuration_poscar_class")
+        # print (spin_configuration_poscar_class)
         error_rate_now=calculate_error_rate_for_this_periodicity_vector(periodicity_vector_now,spin_configuration_poscar_class)
         error_rate_list.append(error_rate_now)
 
@@ -960,7 +982,7 @@ if (__name__ == "__main__"):
 
     batch_production = True
     if not batch_production:
-        constructed_spin_configuration_class=construct_configuration_based_on_target_periodicty(target_periodicity,spin_configuration_poscar_class)
+        constructed_spin_configuration_class=construct_configuration_based_on_target_periodicty(target_periodicity,spin_configuration_poscar_class, species_prim)
 
         # print(spin_configuration_poscar_class.concentration)
         print("input concentration")
@@ -971,10 +993,10 @@ if (__name__ == "__main__"):
         print_to_poscar(constructed_spin_configuration_class,avec_prim,coords_prim,species_prim,output_poscar_destination)
 
 
-    # constructed_spin_configuration_class_max=construct_configuration_based_on_target_periodicty(target_periodicity,spin_configuration_poscar_class)
+    # constructed_spin_configuration_class_max=construct_configuration_based_on_target_periodicty(target_periodicity,spin_configuration_poscar_class,species_prim)
 
     if batch_production:
-        constructed_spin_configuration_class_batch=construct_configuration_based_on_target_periodicty_batch(target_periodicity,spin_configuration_poscar_class,trialsize=args.BatchSize*args.TrialMultiplier)
+        constructed_spin_configuration_class_batch=construct_configuration_based_on_target_periodicty_batch(target_periodicity,spin_configuration_poscar_class,species_prim,trialsize=args.BatchSize*args.TrialMultiplier)
 
 
 
