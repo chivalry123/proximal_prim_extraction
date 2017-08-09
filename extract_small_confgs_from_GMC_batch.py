@@ -710,7 +710,7 @@ if (__name__ == "__main__"):
 
     parser.add_argument(
         "--poscar", "-po",
-        help="Path to struct_xyz file.",
+        help="Path to POSCAR file.",
         default="")
 
     parser.add_argument(
