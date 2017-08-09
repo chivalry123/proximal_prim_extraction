@@ -1,6 +1,7 @@
 
 from __future__ import print_function, division
 
+import pickle
 import errno
 import os
 import re
@@ -38,6 +39,17 @@ __date__ = "2016-09-02"
 __version__ = "0.1"
 
 # Greatest common divisor of more than 2 numbers.  Am I terrible for doing it this way?
+
+def save_obj(obj, name ):
+    dir_name = "obj/"
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open('obj/'+ name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name):
+    with open('obj/' + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
 
 def gcd(*numbers):
     """Return the greatest common divisor of the given integers"""
@@ -741,23 +753,37 @@ if (__name__ == "__main__"):
 
     parser.add_argument(
         "--BatchSize","-batch",
-        help="Path to write output poscar .",
+        help="how many POSCAR output to produce .",
         default=None,
         type=int
     )
 
     parser.add_argument(
         "--TrialMultiplier","-trialmltp",
-        help="Path to write output poscar .",
+        help="How many trials based on the multiple of BatchSize.",
         default=5,
         type=int
     )
+
+    parser.add_argument(
+        "--SaveErrorVectorObjFile",
+        help="Path to write Error Vector .",
+        type=str
+    )
+
+    parser.add_argument(
+        "--LoadErrorVectorObjFile",
+        help="Path to load Error Vector .",
+        type=str
+    )
+
 
 
     args = parser.parse_args()
     maxsize=float(args.MAXSIZE)+0.5
     output_poscar_destination=args.WriteToPoscar
-
+    SaveErrorVectorObjFile = args.SaveErrorVectorObjFile
+    LoadErrorVectorObjFile = args.LoadErrorVectorObjFile
 
     (avec_prim, coords_prim, species_prim)=read_PRIM(args.PRIM)
     # print("(avec_prim, coords_prim, species_prim)")
@@ -860,18 +886,26 @@ if (__name__ == "__main__"):
 
     error_rate_list=[]
 
-    for i in range(len(periodicity_vector_list)):
-        if i%100 == 0:
-            print ("calculated ",i," periodicity error vector")
-            # if i == 1000:
+    if LoadErrorVectorObjFile is None:
+        for i in range(len(periodicity_vector_list)):
+            if i%100 == 0:
+                print ("calculated ",i," periodicity error vector")
+            # if i == 10:
             #     break
-        periodicity_vector_now=periodicity_vector_list[i]
-        # print ("periodicity_vector_now",periodicity_vector_now)
-        # print ("spin_configuration_poscar_class")
-        # print (spin_configuration_poscar_class)
-        error_rate_now=calculate_error_rate_for_this_periodicity_vector(periodicity_vector_now,spin_configuration_poscar_class)
-        error_rate_list.append(error_rate_now)
+            periodicity_vector_now=periodicity_vector_list[i]
+            # print ("periodicity_vector_now",periodicity_vector_now)
+            # print ("spin_configuration_poscar_class")
+            # print (spin_configuration_poscar_class)
+            error_rate_now=calculate_error_rate_for_this_periodicity_vector(periodicity_vector_now,spin_configuration_poscar_class)
+            error_rate_list.append(error_rate_now)
+    else:
+        error_rate_list = load_obj(LoadErrorVectorObjFile)
 
+    if LoadErrorVectorObjFile is not None and SaveErrorVectorObjFile is not None:
+        raise ("Please do not use LoadErrorVectorObjFile and SaveErrorVectorObjFile at the same time")
+
+    if LoadErrorVectorObjFile is None and SaveErrorVectorObjFile is not None:
+        save_obj(error_rate_list,SaveErrorVectorObjFile)
 
     zip_list_periodicity_error=zip(periodicity_vector_list,error_rate_list)
     zip_list_periodicity_error.sort( key = lambda t:t[1] )
