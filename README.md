@@ -1,7 +1,10 @@
 # proximal_prim_extraction
 
+## added implementation of one more method called --AlgoPartialSnapShotOfPoscar 1
+Just add --AlgoPartialSnapShotOfPoscar 1 to the following lines to activate it
+
 ## generate multiple ouput
-python extract_small_confgs_from_GMC_batch.py --MAXSIZE 64 -pr example_1/original/PRIM -po example_1/original/POSCAR.ideal --WriteToPoscar example_1/extracted/output_poscar --BatchSize 10 --TrialMultiplier 10
+python extract_small_confgs_from_GMC_batch.py --MAXSIZE 64 -pr example_1/original/PRIM -po example_1/original/POSCAR.ideal --WriteToPoscar example_1/extracted/output_poscar --BatchSize 10 --TrialMultiplier 10 
 
 
 ## if you have large supercell, it may be useful to do save and load 
