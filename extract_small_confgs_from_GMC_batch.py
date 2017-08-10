@@ -382,6 +382,74 @@ def construct_configuration_based_on_target_periodicty(target_periodicity,based_
 
     ## need to do some mathemtical checking, done
 
+def round_target_site_based_on_base_periodicity(target_site,based_periodicity):
+    return np.array([target_site[0]%based_periodicity[0],target_site[1]%based_periodicity[2],target_site[2]%based_periodicity[5]])
+    # pass
+
+
+def construct_configuration_based_on_target_periodicty_batch_AlgoPartialSnapShotOfPoscar(target_periodicity,based_configuration_class,species_prim,trialsize=100):
+    based_periodicity=based_configuration_class.periodicity
+    assert abs(based_periodicity[1])+abs(based_periodicity[3])+abs(based_periodicity[4])==0
+    common_periodicity=obtain_common_periodicity(target_periodicity,based_periodicity)
+
+
+    # print("common_periodicity[0]",repr( common_periodicity[0]))
+    # print("target_periodicity[0]",repr( target_periodicity[0]))
+    xs_to_check=common_periodicity[0]//target_periodicity[0]
+    # print("xs_to_check",xs_to_check)
+    ys_to_check=common_periodicity[2]//target_periodicity[2]
+    zs_to_check=common_periodicity[5]//target_periodicity[5]
+    # print("zs to check ", zs_to_check)
+
+    target_x=np.array([target_periodicity[0],0,0])
+    target_y=np.array([target_periodicity[1],target_periodicity[2],0])
+    target_z=np.array([target_periodicity[3],target_periodicity[4],target_periodicity[5]])
+    # print (based_periodicity)
+    # print (target_periodicity)
+    # print (xs_to_check)
+    # print (ys_to_check)
+    # print (zs_to_check)
+    #
+    # assert False
+    # constructed_spin_configuration={}
+
+    constructed_spin_configuration_batch=[]
+    constructed_spin_configuration_class_batch=[]
+    for i in range(trialsize):
+        constructed_spin_configuration_batch.append({})
+
+    possible_starting_points = []
+    for i in range(based_periodicity[0]):
+        for j in range(based_periodicity[2]):
+            for k in range(based_periodicity[5]):
+                possible_starting_points.append(np.array([i,j,k]))
+
+    random.shuffle(possible_starting_points)
+
+    print (possible_starting_points)
+    # assert False
+    trialsize = min(trialsize,len(possible_starting_points))
+
+    for trial_now in range(trialsize):
+        starting_point_now = possible_starting_points[trial_now]
+        for i in range(target_periodicity[0]):
+            for j in range(target_periodicity[2]):
+                for k in range(target_periodicity[5]):
+                    for p in range(based_configuration_class.subcell_number):
+                        original_site=np.array([i,j,k])
+                        original_index=tuple( np.concatenate((original_site,np.array([p]))))
+                        target_site = original_site + starting_point_now
+                        target_site = round_target_site_based_on_base_periodicity(target_site,based_periodicity)
+                        target_index=tuple( np.concatenate((target_site,np.array([p]))))
+                        constructed_spin_configuration_batch[trial_now][original_index] = based_configuration_class.evaluate_at_index(target_index)
+                        # pass
+
+    for i in range(trialsize):
+        constructed_spin_configuration_class_batch.append(spin_configuration_class(constructed_spin_configuration_batch[i],target_periodicity,species_prim))
+    return  constructed_spin_configuration_class_batch
+
+    ## need to do some mathemtical checking, done
+
 
 
 
@@ -768,13 +836,22 @@ if (__name__ == "__main__"):
     parser.add_argument(
         "--SaveErrorVectorObjFile",
         help="Path to write Error Vector .",
+        default=None,
         type=str
     )
 
     parser.add_argument(
         "--LoadErrorVectorObjFile",
         help="Path to load Error Vector .",
+        default=None,
         type=str
+    )
+
+    parser.add_argument(
+        "--AlgoPartialSnapShotOfPoscar",
+        help="Path to load Error Vector .",
+        default=False,
+        type=bool
     )
 
 
@@ -784,6 +861,9 @@ if (__name__ == "__main__"):
     output_poscar_destination=args.WriteToPoscar
     SaveErrorVectorObjFile = args.SaveErrorVectorObjFile
     LoadErrorVectorObjFile = args.LoadErrorVectorObjFile
+    AlgoPartialSnapShotOfPoscar = args.AlgoPartialSnapShotOfPoscar
+
+
 
     (avec_prim, coords_prim, species_prim)=read_PRIM(args.PRIM)
     # print("(avec_prim, coords_prim, species_prim)")
@@ -1030,7 +1110,10 @@ if (__name__ == "__main__"):
     # constructed_spin_configuration_class_max=construct_configuration_based_on_target_periodicty(target_periodicity,spin_configuration_poscar_class,species_prim)
 
     if batch_production:
-        constructed_spin_configuration_class_batch=construct_configuration_based_on_target_periodicty_batch(target_periodicity,spin_configuration_poscar_class,species_prim,trialsize=args.BatchSize*args.TrialMultiplier)
+        if not AlgoPartialSnapShotOfPoscar:
+            constructed_spin_configuration_class_batch=construct_configuration_based_on_target_periodicty_batch(target_periodicity,spin_configuration_poscar_class,species_prim,trialsize=args.BatchSize*args.TrialMultiplier)
+        if AlgoPartialSnapShotOfPoscar:
+            constructed_spin_configuration_class_batch=construct_configuration_based_on_target_periodicty_batch_AlgoPartialSnapShotOfPoscar(target_periodicity,spin_configuration_poscar_class,species_prim,trialsize=args.BatchSize*args.TrialMultiplier)
 
 
 
